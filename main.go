@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/AlecAivazis/survey/v2"
+	"github.com/manifoldco/promptui"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -53,16 +53,19 @@ func chooseFileRecursive(currentDir string) (string, error) {
 
 	files = append([]string{".."}, files...)
 
-	var fileChoice string
-	filePrompt := &survey.Select{
-		Message: "Choose a file or directory:",
-		Options: files,
+	prompt := promptui.Select{
+		Label: "Choose a file or directory:",
+		Items: files,
+		Templates: &promptui.SelectTemplates{
+			Selected: "{{ . | cyan }}",
+		},
 	}
-	err = survey.AskOne(filePrompt, &fileChoice)
+	fileIndex, _, err := prompt.Run()
 	if err != nil {
 		return "", err
 	}
 
+	fileChoice := files[fileIndex]
 	if fileChoice == ".." {
 		parentDir := filepath.Dir(currentDir)
 		return chooseFileRecursive(parentDir)
@@ -104,29 +107,36 @@ func isDirectory(path string) bool {
 func getCopyConfig() (FileCopyConfig, error) {
 	var config FileCopyConfig
 
-	prompt := []*survey.Question{
-		{
-			Name:   "Username",
-			Prompt: &survey.Input{Message: "Enter your username:"},
-		},
-		{
-			Name:   "RemoteHost",
-			Prompt: &survey.Input{Message: "Enter the remote host:"},
-		},
-		{
-			Name:   "RemotePort",
-			Prompt: &survey.Input{Message: "Enter the remote port (leave empty for default):"},
-		},
-		{
-			Name:   "Destination",
-			Prompt: &survey.Input{Message: "Enter the destination path:"},
-		},
+	templates := &promptui.PromptTemplates{
+		Prompt:  "{{ . }} ",
+		Valid:   "{{ . | green }} ",
+		Invalid: "{{ . | red }} ",
+		Success: "{{ . | bold }} ",
 	}
 
-	err := survey.Ask(prompt, &config)
-	if err != nil {
-		return FileCopyConfig{}, err
+	prompt := promptui.Prompt{
+		Label:     "Enter your username:",
+		Templates: templates,
 	}
+	config.Username, _ = prompt.Run()
+
+	prompt = promptui.Prompt{
+		Label:     "Enter the remote host:",
+		Templates: templates,
+	}
+	config.RemoteHost, _ = prompt.Run()
+
+	prompt = promptui.Prompt{
+		Label:     "Enter the remote port (leave empty for default):",
+		Templates: templates,
+	}
+	config.RemotePort, _ = prompt.Run()
+
+	prompt = promptui.Prompt{
+		Label:     "Enter the destination path:",
+		Templates: templates,
+	}
+	config.Destination, _ = prompt.Run()
 
 	return config, nil
 }
