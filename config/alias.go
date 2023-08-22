@@ -15,7 +15,6 @@ func ChooseAlias() (types.SSHhost, error) {
 	if err != nil {
 		return types.SSHhost{}, fmt.Errorf("user home dir failed: %v", err)
 	}
-	fmt.Println(home)
 	path := filepath.Join(home, ".ssh", "config")
 	f, err := os.Open(path)
 	if err != nil {
@@ -26,7 +25,6 @@ func ChooseAlias() (types.SSHhost, error) {
 		return types.SSHhost{}, fmt.Errorf("decode config [%s] failed: %v", path, err)
 	}
 	hosts := []types.SSHhost{}
-	fmt.Println(cfg.Hosts)
 	for _, host := range cfg.Hosts {
 		alias := host.Patterns[0].String()
 		if alias == "*" {

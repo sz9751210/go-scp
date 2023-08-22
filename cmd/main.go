@@ -6,6 +6,7 @@ import (
 	"go-copy-tool/file"
 	"go-copy-tool/ssh"
 	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -15,16 +16,21 @@ func main() {
 		return
 	}
 
-	// fmt.Printf("You chose Alias: %s, Host: %s, Port: %s\n", selectedHost.Alias, selectedHost.Host, selectedHost.Port)
+	fmt.Printf("You chose Alias: %s, Host: %s, Port: %s\n", selectedHost.Alias, selectedHost.Host, selectedHost.Port)
 
-	selectedFile, err := file.ChooseFileInteractive()
+	selectedFile, isDirectoryMode, err := file.ChooseFileInteractive()
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
 	}
 
-	remoteDestination := file.PromptForRemoteDestination()
 	userInfo := fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host)
+	remoteDest := file.PromptForRemoteDestination()
 
-	ssh.CopyFileUsingSCP(selectedFile, userInfo, selectedHost.Port, remoteDestination)
+	if isDirectoryMode {
+		remoteDest = filepath.Join(remoteDest, filepath.Base(selectedFile))
+		ssh.CopyUsingSCP(selectedFile, remoteDest, userInfo, selectedHost.Port, true) // Recursive copy
+	} else {
+		ssh.CopyUsingSCP(selectedFile, remoteDest, userInfo, selectedHost.Port, false) // Single file copy
+	}
 }

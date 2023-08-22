@@ -11,19 +11,34 @@ import (
 	"github.com/manifoldco/promptui"
 )
 
-func ChooseFileInteractive() (string, error) {
+func ChooseFileInteractive() (string, bool, error) {
 	dirPath, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
-	return chooseFileRecursive(dirPath)
+	return chooseModeAndFile(dirPath)
 }
 
-func chooseFileRecursive(currentDir string) (string, error) {
+func chooseModeAndFile(currentDir string) (string, bool, error) {
+	modePrompt := promptui.Select{
+		Label: "Choose SCP mode:",
+		Items: []string{"File Mode", "Directory Mode"},
+	}
+	modeIndex, _, err := modePrompt.Run()
+	if err != nil {
+		return "", false, err
+	}
+
+	isDirectoryMode := modeIndex == 1
+
+	return chooseFileRecursive(currentDir, isDirectoryMode)
+}
+
+func chooseFileRecursive(currentDir string, isDirectoryMode bool) (string, bool, error) {
 	files, err := getFilesAndDirectoriesInDirectory(currentDir)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
 	files = append([]string{".."}, files...)
@@ -37,18 +52,18 @@ func chooseFileRecursive(currentDir string) (string, error) {
 			fileInfo, err := os.Stat(fullPath)
 			if err == nil {
 				isDir := fileInfo.IsDir()
-				details := types.FileDetail{
-					Name:        file,
-					Size:        fileInfo.Size(),
-					Mode:        fileInfo.Mode(),
-					ModTime:     fileInfo.ModTime(),
-					IsDirectory: isDir,
-					Owner:       getFileOwner(fileInfo),
-					Group:       getFileGroup(fileInfo),
+				if (isDirectoryMode && isDir) || (!isDirectoryMode && !isDir) {
+					details := types.FileDetail{
+						Name:        file,
+						Size:        fileInfo.Size(),
+						Mode:        fileInfo.Mode(),
+						ModTime:     fileInfo.ModTime(),
+						IsDirectory: isDir,
+						Owner:       getFileOwner(fileInfo),
+						Group:       getFileGroup(fileInfo),
+					}
+					fileDetails = append(fileDetails, details)
 				}
-				fileDetails = append(fileDetails, details)
-			} else {
-				fileDetails = append(fileDetails, types.FileDetail{Name: file})
 			}
 		}
 	}
@@ -77,21 +92,18 @@ func chooseFileRecursive(currentDir string) (string, error) {
 
 	fileIndex, _, err := prompt.Run()
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
-	fileChoice := files[fileIndex]
-	if fileChoice == ".." {
+	fileChoice := fileDetails[fileIndex]
+	if fileChoice.Name == ".." {
 		parentDir := filepath.Dir(currentDir)
-		return chooseFileRecursive(parentDir)
+		return chooseModeAndFile(parentDir)
 	}
 
-	selectedPath := filepath.Join(currentDir, fileChoice)
-	if isDirectory(selectedPath) {
-		return chooseFileRecursive(selectedPath)
-	}
+	selectedPath := filepath.Join(currentDir, fileChoice.Name)
 
-	return selectedPath, nil
+	return selectedPath, fileChoice.IsDirectory, nil
 }
 
 func isDirectory(path string) bool {
