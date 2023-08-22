@@ -23,3 +23,16 @@ func CopyUsingSCP(source, destination, userInfo, port string, isRecursive bool) 
 		fmt.Println("Error:", err)
 	}
 }
+
+func ExecuteRemoteCommand(command, userInfo, port string) {
+	sshCmd := exec.Command("ssh", "-p", port, userInfo, command)
+	sshCmd.Stdout = os.Stdout
+	sshCmd.Stderr = os.Stderr
+
+	err := sshCmd.Run()
+	if err != nil {
+		fmt.Println("Error executing remote command:", err)
+	} else {
+		fmt.Println("Command executed successfully on remote host")
+	}
+}
