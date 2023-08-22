@@ -16,7 +16,7 @@ func main() {
 		return
 	}
 
-	fmt.Printf("You chose Alias: %s, Host: %s, Port: %s\n", selectedHost.Alias, selectedHost.Host, selectedHost.Port)
+	// fmt.Printf("You chose Alias: %s, Host: %s, Port: %s\n", selectedHost.Alias, selectedHost.Host, selectedHost.Port)
 
 	selectedFile, isDirectoryMode, err := file.ChooseFileInteractive()
 	if err != nil {
