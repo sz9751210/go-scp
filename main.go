@@ -2,38 +2,129 @@ package main
 
 import (
 	"fmt"
+	"github.com/kevinburke/ssh_config"
 	"github.com/manifoldco/promptui"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
-type FileCopyConfig struct {
-	SourceFile  string
-	Username    string
-	RemoteHost  string
-	RemotePort  string
-	Destination string
+type sshHost struct {
+	Alias string
+	Host  string
+	Port  string
+	User  string
+}
+
+func chooseAlias() (sshHost, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return sshHost{}, fmt.Errorf("user home dir failed: %v", err)
+	}
+	fmt.Println(home)
+	path := filepath.Join(home, ".ssh", "config")
+	f, err := os.Open(path)
+	if err != nil {
+		return sshHost{}, fmt.Errorf("open config [%s] failed: %v", path, err)
+	}
+	cfg, err := ssh_config.Decode(f)
+	if err != nil {
+		return sshHost{}, fmt.Errorf("decode config [%s] failed: %v", path, err)
+	}
+	hosts := []sshHost{}
+	fmt.Println(cfg.Hosts)
+	for _, host := range cfg.Hosts {
+		alias := host.Patterns[0].String()
+		if alias == "*" {
+			continue
+		}
+		host := ssh_config.Get(alias, "HostName")
+		port := ssh_config.Get(alias, "Port")
+		user := ssh_config.Get(alias, "User")
+		hosts = append(hosts, sshHost{alias, host, port, user})
+	}
+	fmt.Println(hosts)
+	templates := &promptui.SelectTemplates{
+		Label:    "{{ . }}?",
+		Active:   "\U0001F336 {{ .Alias | cyan }} ({{ .Host | red }})",
+		Inactive: "  {{ .Alias | cyan }} ({{ .Host | red }})",
+		Selected: "\U0001F336 {{ .Alias | red | cyan }}",
+		Details: `
+--------- SSH Alias ----------
+{{ "Alias:" | faint }}	{{ .Alias }}
+{{ "Host:" | faint }}	{{ .Host }}
+{{ "Port:" | faint }}	{{ .Port }}
+{{ "User:" | faint }}	{{ .User }}`,
+	}
+
+	searcher := func(input string, index int) bool {
+		h := hosts[index]
+		alias := strings.Replace(strings.ToLower(h.Alias), " ", "", -1)
+		host := strings.Replace(strings.ToLower(h.Host), " ", "", -1)
+		input = strings.Replace(strings.ToLower(input), " ", "", -1)
+		return strings.Contains(alias, input) || strings.Contains(host, input)
+	}
+
+	prompt := promptui.Select{
+		Label:     "SSH Alias",
+		Items:     hosts,
+		Templates: templates,
+		Size:      10,
+		Searcher:  searcher,
+	}
+
+	i, _, err := prompt.Run()
+	if err != nil {
+		return sshHost{}, err
+	}
+	return hosts[i], nil
 }
 
 func main() {
+	selectedHost, err := chooseAlias()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return
+	}
+
+	// fmt.Printf("You chose Alias: %s, Host: %s, Port: %s\n", selectedHost.Alias, selectedHost.Host, selectedHost.Port)
+
 	selectedFile, err := chooseFileInteractive()
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
 	}
 
-	config, err := getCopyConfig()
+	remoteDestination := promptForRemoteDestination()
+	userInfo := fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host)
+
+	copyFileUsingSCP(selectedFile, userInfo, selectedHost.Port, remoteDestination)
+}
+
+func promptForRemoteDestination() string {
+	prompt := promptui.Prompt{
+		Label: "Enter the remote destination path:",
+	}
+	remoteDest, err := prompt.Run()
 	if err != nil {
 		fmt.Println("Error:", err)
-		return
+		return ""
 	}
+	return remoteDest
+}
 
-	destination := fmt.Sprintf("%s@%s:%s", config.Username, config.RemoteHost, config.Destination)
-	if config.RemotePort != "" {
-		destination = fmt.Sprintf("-P %s %s", config.RemotePort, destination)
+func copyFileUsingSCP(sourceFile, userInfo, port, remoteDestination string) {
+	cmdString := fmt.Sprintf("scp -P %s %s %s:%s", port, sourceFile, userInfo, remoteDestination)
+
+	cmd := exec.Command("bash", "-c", cmdString)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("Error:", err)
 	}
-	copyFileUsingSCP(selectedFile, destination, config)
 }
 
 func chooseFileInteractive() (string, error) {
@@ -79,6 +170,14 @@ func chooseFileRecursive(currentDir string) (string, error) {
 	return selectedPath, nil
 }
 
+func isDirectory(path string) bool {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return fileInfo.IsDir()
+}
+
 func getFilesAndDirectoriesInDirectory(dirPath string) ([]string, error) {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
@@ -94,77 +193,4 @@ func getFilesAndDirectoriesInDirectory(dirPath string) ([]string, error) {
 		options = append(options, name)
 	}
 	return options, nil
-}
-
-func isDirectory(path string) bool {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return fileInfo.IsDir()
-}
-
-func getCopyConfig() (FileCopyConfig, error) {
-	var config FileCopyConfig
-
-	templates := &promptui.PromptTemplates{
-		Prompt:  "{{ . }} ",
-		Valid:   "{{ . | green }} ",
-		Invalid: "{{ . | red }} ",
-		Success: "{{ . | bold }} ",
-	}
-
-	prompt := promptui.Prompt{
-		Label:     "Enter your username:",
-		Templates: templates,
-	}
-	config.Username, _ = prompt.Run()
-
-	prompt = promptui.Prompt{
-		Label:     "Enter the remote host:",
-		Templates: templates,
-	}
-	config.RemoteHost, _ = prompt.Run()
-
-	prompt = promptui.Prompt{
-		Label:     "Enter the remote port (leave empty for default):",
-		Templates: templates,
-	}
-	config.RemotePort, _ = prompt.Run()
-
-	prompt = promptui.Prompt{
-		Label:     "Enter the destination path:",
-		Templates: templates,
-	}
-	config.Destination, _ = prompt.Run()
-
-	return config, nil
-}
-
-func getFilesInDirectory(dirPath string) ([]string, error) {
-	files, err := os.ReadDir(dirPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var fileNames []string
-	for _, file := range files {
-		if !file.IsDir() {
-			fileNames = append(fileNames, file.Name())
-		}
-	}
-	return fileNames, nil
-}
-
-func copyFileUsingSCP(sourceFile, destination string, config FileCopyConfig) {
-	cmdString := fmt.Sprintf("scp -P %s %s %s@%s:%s", config.RemotePort, sourceFile, config.Username, config.RemoteHost, config.Destination)
-
-	cmd := exec.Command("bash", "-c", cmdString)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println("Error:", err)
-	}
 }
