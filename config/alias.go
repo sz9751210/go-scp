@@ -37,9 +37,9 @@ func ChooseAlias() (types.SSHhost, error) {
 	}
 	templates := &promptui.SelectTemplates{
 		Label:    "{{ . }}?",
-		Active:   "\U0001F336 {{ .Alias | cyan }} ({{ .Host | red }})",
+		Active:   "\U0001F4BB {{ .Alias | cyan }} ({{ .Host | red }})",
 		Inactive: "  {{ .Alias | cyan }} ({{ .Host | red }})",
-		Selected: "\U0001F336 {{ .Alias | red | cyan }}",
+		Selected: "\U0001F4BB {{ .Alias | red | cyan }}",
 		Details: `
 --------- SSH Alias ----------
 {{ "Alias:" | faint }}	{{ .Alias }}
