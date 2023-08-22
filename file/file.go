@@ -2,7 +2,7 @@ package file
 
 import (
 	"fmt"
-	"go-copy-tool/types"
+	"go-ssh-util/types"
 	"os"
 	"os/user"
 	"path/filepath"

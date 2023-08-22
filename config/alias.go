@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/kevinburke/ssh_config"
 	"github.com/manifoldco/promptui"
-	"go-copy-tool/types"
+	"go-ssh-util/types"
 	"os"
 	"path/filepath"
 	"strings"

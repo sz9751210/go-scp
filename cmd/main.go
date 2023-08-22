@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"go-copy-tool/config"
-	"go-copy-tool/file"
-	"go-copy-tool/ssh"
+	"go-ssh-util/config"
+	"go-ssh-util/file"
+	"go-ssh-util/ssh"
 	"os"
 	"path/filepath"
 
