@@ -55,10 +55,10 @@ func ChooseAlias() (types.SSHhost, error) {
 		input = strings.Replace(strings.ToLower(input), " ", "", -1)
 		return strings.Contains(alias, input) || strings.Contains(host, input)
 	}
-
+	options := append(hosts, types.SSHhost{Alias: "Enter Manually"})
 	prompt := promptui.Select{
 		Label:     "SSH Alias",
-		Items:     hosts,
+		Items:     options,
 		Templates: templates,
 		Size:      10,
 		Searcher:  searcher,
@@ -68,5 +68,50 @@ func ChooseAlias() (types.SSHhost, error) {
 	if err != nil {
 		return types.SSHhost{}, err
 	}
+	if i == len(options)-1 {
+		// Last option is "Enter Manually"
+		return EnterManualSSHHost()
+	}
 	return hosts[i], nil
+}
+
+func EnterManualSSHHost() (types.SSHhost, error) {
+	fmt.Println("The SSH host alias is not found in the config. Please enter the host information manually.")
+
+	// Prompt for manual entry
+	prompt := []*promptui.Prompt{
+		{
+			Label: "Enter alias:",
+		},
+		{
+			Label: "Enter host:",
+		},
+		{
+			Label: "Enter port:",
+		},
+		{
+			Label: "Enter user:",
+		},
+	}
+
+	manualEntry := types.SSHhost{}
+	for i, p := range prompt {
+		result, err := p.Run()
+		if err != nil {
+			return types.SSHhost{}, err
+		}
+
+		switch i {
+		case 0:
+			manualEntry.Alias = result
+		case 1:
+			manualEntry.Host = result
+		case 2:
+			manualEntry.Port = result
+		case 3:
+			manualEntry.User = result
+		}
+	}
+
+	return manualEntry, nil
 }
