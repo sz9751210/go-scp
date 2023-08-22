@@ -2,9 +2,13 @@ package file
 
 import (
 	"fmt"
-	"github.com/manifoldco/promptui"
+	"go-copy-tool/types"
 	"os"
+	"os/user"
 	"path/filepath"
+	"syscall"
+
+	"github.com/manifoldco/promptui"
 )
 
 func ChooseFileInteractive() (string, error) {
@@ -24,13 +28,53 @@ func chooseFileRecursive(currentDir string) (string, error) {
 
 	files = append([]string{".."}, files...)
 
+	var fileDetails []types.FileDetail
+	for _, file := range files {
+		if file == ".." {
+			fileDetails = append(fileDetails, types.FileDetail{Name: ".."})
+		} else {
+			fullPath := filepath.Join(currentDir, file)
+			fileInfo, err := os.Stat(fullPath)
+			if err == nil {
+				isDir := fileInfo.IsDir()
+				details := types.FileDetail{
+					Name:        file,
+					Size:        fileInfo.Size(),
+					Mode:        fileInfo.Mode(),
+					ModTime:     fileInfo.ModTime(),
+					IsDirectory: isDir,
+					Owner:       getFileOwner(fileInfo),
+					Group:       getFileGroup(fileInfo),
+				}
+				fileDetails = append(fileDetails, details)
+			} else {
+				fileDetails = append(fileDetails, types.FileDetail{Name: file})
+			}
+		}
+	}
+
 	prompt := promptui.Select{
 		Label: "Choose a file or directory:",
-		Items: files,
+		Items: fileDetails,
 		Templates: &promptui.SelectTemplates{
-			Selected: "{{ . | cyan }}",
+			Label:    "{{ .Name }}?",
+			Active:   "\U0001F4C4 {{ .Name | cyan }}",
+			Inactive: "  {{ .Name | cyan }}",
+			Selected: "\U0001F4C4 {{ .Name | red | cyan }}",
+			Details: `
+	--------- File Detail ----------
+	{{ "Name:" | faint }}       {{ .Name }}
+	{{ "Size:" | faint }}       {{ .Size }} bytes
+	{{ "Mode:" | faint }}       {{ .Mode }}
+	{{ "ModTime:" | faint }}    {{ .ModTime }}
+	{{ "IsDirectory:" | faint }} {{ .IsDirectory }}
+	{{ "Owner:" | faint }}      {{ .Owner }}
+	{{ "Group:" | faint }}      {{ .Group }}
+	`,
 		},
+		Size: 10,
 	}
+
 	fileIndex, _, err := prompt.Run()
 	if err != nil {
 		return "", err
@@ -75,14 +119,20 @@ func getFilesAndDirectoriesInDirectory(dirPath string) ([]string, error) {
 	return options, nil
 }
 
-func PromptForRemoteDestination() string {
-	prompt := promptui.Prompt{
-		Label: "Enter the remote destination path ",
-	}
-	remoteDest, err := prompt.Run()
+func getFileOwner(info os.FileInfo) string {
+	stat := info.Sys().(*syscall.Stat_t)
+	user, err := user.LookupId(fmt.Sprint(stat.Uid))
 	if err != nil {
-		fmt.Println("Error:", err)
 		return ""
 	}
-	return remoteDest
+	return user.Username
+}
+
+func getFileGroup(info os.FileInfo) string {
+	stat := info.Sys().(*syscall.Stat_t)
+	group, err := user.LookupGroupId(fmt.Sprint(stat.Gid))
+	if err != nil {
+		return ""
+	}
+	return group.Name
 }

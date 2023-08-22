@@ -37,7 +37,6 @@ func ChooseAlias() (types.SSHhost, error) {
 		user := ssh_config.Get(alias, "User")
 		hosts = append(hosts, types.SSHhost{alias, host, port, user})
 	}
-	fmt.Println(hosts)
 	templates := &promptui.SelectTemplates{
 		Label:    "{{ . }}?",
 		Active:   "\U0001F336 {{ .Alias | cyan }} ({{ .Host | red }})",
