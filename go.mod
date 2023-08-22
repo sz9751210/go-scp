@@ -1,4 +1,4 @@
-module go-copy-tool
+module go-ssh-util
 
 go 1.20
 
