@@ -15,7 +15,7 @@ func main() {
 	// Prompt for SCP or 'free' command
 	scpPrompt := promptui.Select{
 		Label: "Choose an operation:",
-		Items: []string{"Copy File/Directory (SCP)", "Execute 'free' Command"},
+		Items: []string{"Copy File/Directory (SCP)", "Check Memory", "Check Disk", "Check Swap"},
 	}
 
 	scpIndex, _, err := scpPrompt.Run()
@@ -56,5 +56,21 @@ func main() {
 		}
 
 		ssh.ExecuteRemoteCommand("free -h", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
+	case 2: // Execute 'df' Command
+		selectedHost, err := config.ChooseAlias()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return
+		}
+
+		ssh.ExecuteRemoteCommand("df -h", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
+	case 3: // Execute 'df' Command
+		selectedHost, err := config.ChooseAlias()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return
+		}
+
+		ssh.ExecuteRemoteCommand("cat /proc/swaps", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
 	}
 }
