@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/trzsz/promptui"
 	"go-ssh-util/config"
 	"go-ssh-util/file"
 	"go-ssh-util/ssh"
 	"os"
 	"path/filepath"
-
-	"github.com/trzsz/promptui"
 )
 
 func main() {
@@ -16,7 +15,7 @@ func main() {
 		// Prompt for SCP or 'free' command
 		scpPrompt := promptui.Select{
 			Label: "Choose an operation:",
-			Items: []string{"Copy File/Directory (SCP)", "Check Memory", "Check Disk", "Check Swap", "Quit"},
+			Items: []string{"Copy File/Directory (SCP)", "🖥️ Check Systeminfo", "Quit"},
 		}
 
 		scpIndex, _, err := scpPrompt.Run()
@@ -24,6 +23,9 @@ func main() {
 			fmt.Println("Error:", err)
 			return
 		}
+
+		// Check if the system info loop should be active
+		systemInfoActive := false
 
 		switch scpIndex {
 		case 0: // Copy File/Directory (SCP)
@@ -48,32 +50,69 @@ func main() {
 			} else {
 				ssh.CopyUsingSCP(selectedFile, remoteDest, userInfo, selectedHost.Port, false) // Single file copy
 			}
+		case 1: // systeminfo
+			systemInfoActive = true // Set the flag to true
 
-		case 1: // Execute 'free' Command
-			selectedHost, err := config.ChooseAlias()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-				return
-			}
-
-			ssh.ExecuteRemoteCommand("free -h", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
-		case 2: // Execute 'df' Command
-			selectedHost, err := config.ChooseAlias()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-				return
-			}
-
-			ssh.ExecuteRemoteCommand("df -h", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
-		case 3: // Execute 'df' Command
-			selectedHost, err := config.ChooseAlias()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-				return
-			}
-			ssh.ExecuteRemoteCommand("cat /proc/swaps", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
-		case 4:
+		case 2:
 			return
+		}
+
+		if systemInfoActive {
+			// Prompt for system info options
+			systeminfoPrompt := promptui.Select{
+				Label: "Choose an operation:",
+				Items: []string{"Check CPU", "Check Memory", "Check Disk", "Check Swap", "Check Network"},
+			}
+
+			systeminfoIndex, _, err := systeminfoPrompt.Run()
+			if err != nil {
+				fmt.Println("Error:", err)
+				return
+			}
+
+			switch systeminfoIndex {
+			case 0: // cpu
+				selectedHost, err := config.ChooseAlias()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%v\n", err)
+					return
+				}
+
+				ssh.ExecuteRemoteCommand("lscpu", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
+			case 1: // memory
+				selectedHost, err := config.ChooseAlias()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%v\n", err)
+					return
+				}
+
+				ssh.ExecuteRemoteCommand("free -h", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
+			case 2: //disk
+				selectedHost, err := config.ChooseAlias()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%v\n", err)
+					return
+				}
+
+				ssh.ExecuteRemoteCommand("df -h", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
+			case 3: //swap
+				selectedHost, err := config.ChooseAlias()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%v\n", err)
+					return
+				}
+
+				ssh.ExecuteRemoteCommand("cat /proc/swaps", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
+			case 4: //network
+				selectedHost, err := config.ChooseAlias()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%v\n", err)
+					return
+				}
+
+				ssh.ExecuteRemoteCommand("ip", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
+			}
+			systemInfoActive = false // Reset the flag
 		}
 	}
 }
