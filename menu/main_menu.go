@@ -10,7 +10,7 @@ import (
 func showMainMenu() int {
 	menuPrompt := promptui.Select{
 		Label: "Choose an operation:",
-		Items: []string{"Copy File/Directory (SCP)", "🖥️ Check Systeminfo", "Quit"},
+		Items: []string{"\U0001F4C1 Copy File/Directory (SCP)", "\U0001F5A5 Check Systeminfo", "\U0001F5A7 Check Network", "Quit"},
 	}
 
 	scpIndex, _, err := menuPrompt.Run()
@@ -31,7 +31,9 @@ func RunMainLoop() {
 			actions.RunCopyFiles()
 		case 1: // systeminfo
 			RunSystemInfo()
-		case 2:
+		case 2: // network
+			RunNetwork()
+		case 3:
 			fmt.Println("Goodbye!")
 			return
 		}
