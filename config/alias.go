@@ -2,12 +2,13 @@ package config
 
 import (
 	"fmt"
-	"github.com/kevinburke/ssh_config"
-	"github.com/manifoldco/promptui"
 	"go-ssh-util/types"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/kevinburke/ssh_config"
+	"github.com/manifoldco/promptui"
 )
 
 func ChooseAlias() (types.SSHhost, error) {
@@ -33,7 +34,8 @@ func ChooseAlias() (types.SSHhost, error) {
 		host := ssh_config.Get(alias, "HostName")
 		port := ssh_config.Get(alias, "Port")
 		user := ssh_config.Get(alias, "User")
-		hosts = append(hosts, types.SSHhost{alias, host, port, user})
+		key := ssh_config.Get(alias, "IdentityFile")
+		hosts = append(hosts, types.SSHhost{alias, host, port, user, key})
 	}
 	templates := &promptui.SelectTemplates{
 		Label:    "{{ . }}?",
@@ -45,7 +47,8 @@ func ChooseAlias() (types.SSHhost, error) {
 {{ "Alias:" | faint }}	{{ .Alias }}
 {{ "Host:" | faint }}	{{ .Host }}
 {{ "Port:" | faint }}	{{ .Port }}
-{{ "User:" | faint }}	{{ .User }}`,
+{{ "User:" | faint }}	{{ .User }}
+{{ "IdentityFile:" | faint }}	{{ .IdentityFile }}`,
 	}
 
 	searcher := func(input string, index int) bool {
@@ -115,3 +118,44 @@ func EnterManualSSHHost() (types.SSHhost, error) {
 
 	return manualEntry, nil
 }
+
+// func SSHToRemoteHostWithKey(host types.SSHhost, privateKeyPath string) error {
+// 	if host == "" || port == "" || user == "" {
+// 		return nil, fmt.Errorf("ssh alias [%s] invalid: host=[%s] port=[%s] user=[%s]", alias, host, port, user)
+// 	}
+
+// 	// read private key
+// 	home, err := os.UserHomeDir()
+// 	if err != nil {
+// 		return nil, fmt.Errorf("user home dir failed: %v", err)
+// 	}
+// 	privateKey, err := os.ReadFile(privateKeyPath)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	signer, err := ssh.ParsePrivateKey(privateKey)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	config := &ssh.ClientConfig{
+// 		User: host.User,
+// 		Auth: []ssh.AuthMethod{
+// 			ssh.PublicKeys(signer),
+// 		},
+// 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+// 	}
+
+// 	address := fmt.Sprintf("%s:%s", host.Host, host.Port)
+// 	client, err := ssh.Dial("tcp", address, config)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer client.Close()
+
+// 	// Now you have an SSH client connection to the remote host.
+// 	// You can use this client to execute commands or transfer files.
+
+// 	return nil
+// }
