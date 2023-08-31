@@ -6,10 +6,11 @@ import (
 )
 
 type SSHhost struct {
-	Alias string
-	Host  string
-	Port  string
-	User  string
+	Alias        string
+	Host         string
+	Port         string
+	User         string
+	IdentityFile string
 }
 
 type FileDetail struct {
