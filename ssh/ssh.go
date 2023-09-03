@@ -42,6 +42,19 @@ func ExecuteRemoteCommand(command, userInfo, port string) {
 	}
 }
 
+func ExecuteLocalCommand(command string) {
+	cmd := exec.Command("bash", "-c", command)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("Error executing local command:", err)
+	} else {
+		fmt.Println("Local command executed successfully")
+	}
+}
+
 func expandTilde(path string) (string, error) {
 	if !strings.HasPrefix(path, "~") {
 		return path, nil

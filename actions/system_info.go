@@ -8,7 +8,7 @@ import (
 )
 
 func RunCheckCPU() {
-	selectedHost, err := config.ChooseAlias()
+	selectedHost, _, err := config.ChooseAlias()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
@@ -18,7 +18,7 @@ func RunCheckCPU() {
 }
 
 func RunCheckMemory() {
-	selectedHost, err := config.ChooseAlias()
+	selectedHost, _, err := config.ChooseAlias()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
@@ -28,7 +28,7 @@ func RunCheckMemory() {
 }
 
 func RunCheckDisk() {
-	selectedHost, err := config.ChooseAlias()
+	selectedHost, _, err := config.ChooseAlias()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
@@ -38,7 +38,7 @@ func RunCheckDisk() {
 }
 
 func RunCheckSwap() {
-	selectedHost, err := config.ChooseAlias()
+	selectedHost, _, err := config.ChooseAlias()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
@@ -48,7 +48,7 @@ func RunCheckSwap() {
 }
 
 func RunCheckNetwork() {
-	selectedHost, err := config.ChooseAlias()
+	selectedHost, _, err := config.ChooseAlias()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
