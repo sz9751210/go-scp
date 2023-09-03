@@ -8,11 +8,16 @@ import (
 )
 
 func RunStatus() {
-	selectedHost, err := config.ChooseAlias()
+	selectedHost, ExecutionMode, err := config.ChooseAlias()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
 	}
+	command := "docker ps"
+	if ExecutionMode == 1 {
+		ssh.ExecuteLocalCommand(command)
+	} else {
+		ssh.ExecuteRemoteCommand(command, fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
+	}
 
-	ssh.ExecuteRemoteCommand("docker ps", fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
 }

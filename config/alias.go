@@ -11,11 +11,59 @@ import (
 	"github.com/manifoldco/promptui"
 )
 
-func ChooseAlias() (types.SSHhost, error) {
+type ExecutionMode int
+
+const (
+	LocalExecution  ExecutionMode = 1
+	RemoteExecution ExecutionMode = 2
+)
+
+func ChooseAlias() (types.SSHhost, ExecutionMode, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return types.SSHhost{}, fmt.Errorf("user home dir failed: %v", err)
+		return types.SSHhost{}, LocalExecution, fmt.Errorf("user home dir failed: %v", err)
 	}
+
+	executionMode, err := chooseExecutionMode()
+	if err != nil {
+		return types.SSHhost{}, LocalExecution, err
+	}
+
+	if executionMode == RemoteExecution {
+		host, err := chooseRemoteAlias(home)
+		return host, RemoteExecution, err
+	}
+
+	// Local execution mode
+	fmt.Println("You chose Local execution mode. You can execute your command locally.")
+	return types.SSHhost{}, LocalExecution, nil
+}
+
+func chooseExecutionMode() (ExecutionMode, error) {
+	// templates := &promptui.SelectTemplates{
+	// 	Label:    "{{ . }}?",
+	// 	Active:   "\U0001F4BB {{ .Mode | cyan }}",
+	// 	Inactive: "  {{ .Mode | cyan }}",
+	// 	Selected: "\U0001F4BB {{ .Mode | red | cyan }}",
+	// }
+
+	prompt := promptui.Select{
+		Label: "Choose Execution Mode",
+		Items: []string{"Local", "Remote"},
+		// Items: []ExecutionMode{LocalExecution, RemoteExecution},
+		// Templates: templates,
+		Size: 2,
+	}
+
+	i, _, err := prompt.Run()
+	if err != nil {
+		return LocalExecution, err
+	}
+
+	return ExecutionMode(i + 1), nil
+}
+
+func chooseRemoteAlias(home string) (types.SSHhost, error) {
 	path := filepath.Join(home, ".ssh", "config")
 	f, err := os.Open(path)
 	if err != nil {
@@ -118,44 +166,3 @@ func EnterManualSSHHost() (types.SSHhost, error) {
 
 	return manualEntry, nil
 }
-
-// func SSHToRemoteHostWithKey(host types.SSHhost, privateKeyPath string) error {
-// 	if host == "" || port == "" || user == "" {
-// 		return nil, fmt.Errorf("ssh alias [%s] invalid: host=[%s] port=[%s] user=[%s]", alias, host, port, user)
-// 	}
-
-// 	// read private key
-// 	home, err := os.UserHomeDir()
-// 	if err != nil {
-// 		return nil, fmt.Errorf("user home dir failed: %v", err)
-// 	}
-// 	privateKey, err := os.ReadFile(privateKeyPath)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	signer, err := ssh.ParsePrivateKey(privateKey)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	config := &ssh.ClientConfig{
-// 		User: host.User,
-// 		Auth: []ssh.AuthMethod{
-// 			ssh.PublicKeys(signer),
-// 		},
-// 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-// 	}
-
-// 	address := fmt.Sprintf("%s:%s", host.Host, host.Port)
-// 	client, err := ssh.Dial("tcp", address, config)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer client.Close()
-
-// 	// Now you have an SSH client connection to the remote host.
-// 	// You can use this client to execute commands or transfer files.
-
-// 	return nil
-// }

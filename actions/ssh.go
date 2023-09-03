@@ -8,7 +8,7 @@ import (
 )
 
 func RunSSH() {
-	selectedHost, err := config.ChooseAlias()
+	selectedHost, _, err := config.ChooseAlias()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
