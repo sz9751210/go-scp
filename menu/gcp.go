@@ -40,7 +40,7 @@ func RunGCP() {
 func showGCEMenu() int {
 	menuPrompt := promptui.Select{
 		Label: "Choose an operation:",
-		Items: []string{"Get VMs", "Start VM", "Stop VM", "Return to Main Menu"},
+		Items: []string{"Get VMs", "Start VM", "Stop VM", "Create VM", "Return to Main Menu"},
 	}
 
 	GCPIndex, _, err := menuPrompt.Run()
@@ -65,6 +65,8 @@ func RunGCE() {
 			gcp.RunStartVM()
 		case 2:
 			gcp.RunStopVM()
+		case 3:
+			gcp.RunCreateGCEInstance()
 		default:
 			GCPActive = false
 		}
