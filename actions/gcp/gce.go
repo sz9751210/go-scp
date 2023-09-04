@@ -175,7 +175,20 @@ func RunCreateGCEInstance() {
 	}
 
 	// Retrieve the list of available zones
-	zones, err := getAvailableZones()
+	regions, err := getAvailableRegions()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return
+	}
+
+	// Allow the user to choose a zone
+	selectedRegion, err := chooseRegion(regions)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return
+	}
+
+	zones, err := getAvailableZones(selectedRegion)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return
@@ -325,8 +338,8 @@ func chooseMachineType(machineTypes []string) (string, error) {
 }
 
 // Function to get the list of available zones
-func getAvailableZones() ([]string, error) {
-	cmd := exec.Command("gcloud", "compute", "zones", "list")
+func getAvailableZones(region string) ([]string, error) {
+	cmd := exec.Command("gcloud", "compute", "zones", "list", fmt.Sprintf("--filter=region:%s", region))
 
 	// Capture the output of the command
 	output, err := cmd.CombinedOutput()
@@ -336,7 +349,9 @@ func getAvailableZones() ([]string, error) {
 
 	// Parse the output to extract zone names
 	var zones []string
-	for _, line := range strings.Split(string(output), "\n") {
+	lines := strings.Split(string(output), "\n")
+	for i := 1; i < len(lines); i++ {
+		line := lines[i]
 		if strings.TrimSpace(line) != "" {
 			zones = append(zones, strings.Fields(line)[0])
 		}
@@ -350,6 +365,46 @@ func chooseZone(zones []string) (string, error) {
 	prompt := promptui.Select{
 		Label: "Select a zone:",
 		Items: zones,
+		Size:  10,
+	}
+
+	// Show the prompt and get the selected zone
+	_, result, err := prompt.Run()
+	if err != nil {
+		return "", err
+	}
+
+	return result, nil
+}
+
+// Function to get the list of available zones
+func getAvailableRegions() ([]string, error) {
+	cmd := exec.Command("gcloud", "compute", "regions", "list")
+
+	// Capture the output of the command
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the output to extract zone names
+	var regions []string
+	lines := strings.Split(string(output), "\n")
+	for i := 1; i < len(lines); i++ {
+		line := lines[i]
+		if strings.TrimSpace(line) != "" {
+			regions = append(regions, strings.Fields(line)[0])
+		}
+	}
+	fmt.Println(regions)
+	return regions, nil
+}
+
+// Function to allow the user to choose a zone
+func chooseRegion(regions []string) (string, error) {
+	prompt := promptui.Select{
+		Label: "Select a region:",
+		Items: regions,
 		Size:  10,
 	}
 
@@ -394,7 +449,6 @@ func promptForGCEInstanceConfig(selectedZone, selectedMachineType string) (GCEIn
 		config.Zone = selectedZone
 		config.MachineType = selectedMachineType
 	}
-	fmt.Println("ok")
 	return config, nil
 }
 
