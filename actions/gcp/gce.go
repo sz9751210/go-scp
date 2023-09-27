@@ -2,15 +2,23 @@ package gcp
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"go-ssh-util/config"
 	"go-ssh-util/ssh"
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 
 	"github.com/trzsz/promptui"
+	"google.golang.org/api/compute/v1"
+)
+
+var (
+	projectID = "splendid-window-398208"
+	ctx       = context.Background()
 )
 
 type GCEInstance struct {
@@ -40,18 +48,42 @@ type MachineTypeInfo struct {
 	Memory string
 }
 
+// 使用前請先驗證 -> https://matthung0807.blogspot.com/2023/02/gcp-setup-local-user-credential-to-adc.html
 func RunGetVMs() {
-	selectedHost, ExecutionMode, err := config.ChooseAlias(true)
+
+	// 創建一個 Compute Engine 服務實例
+	computeService, err := compute.NewService(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Printf("Error creating compute service: %v\n", err)
 		return
 	}
-	command := "gcloud compute instances list"
-	if ExecutionMode == 1 {
-		ssh.ExecuteLocalCommand(command)
-	} else {
-		ssh.ExecuteRemoteCommand(command, fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
+
+	// 列出項目中的所有 GCE 實例
+	instanceList, err := computeService.Instances.AggregatedList(projectID).Do()
+	if err != nil {
+		fmt.Printf("Error listing instances: %v\n", err)
+		return
 	}
+
+	// 輸出所有 GCE 實例的名稱
+	for _, itemList := range instanceList.Items {
+		for _, instance := range itemList.Instances {
+			zone := path.Base(instance.Zone)
+			machine_type := path.Base(instance.MachineType)
+			fmt.Printf("Instance Name: %s, Zone: %s, Status: %s,  Machine-Type: %s\n", instance.Name, zone, instance.Status, machine_type)
+		}
+	}
+	// selectedHost, ExecutionMode, err := config.ChooseAlias(true)
+	// if err != nil {
+	// 	fmt.Fprintf(os.Stderr, "%v\n", err)
+	// 	return
+	// }
+	// command := "gcloud compute instances list"
+	// if ExecutionMode == 1 {
+	// 	ssh.ExecuteLocalCommand(command)
+	// } else {
+	// 	ssh.ExecuteRemoteCommand(command, fmt.Sprintf("%s@%s", selectedHost.User, selectedHost.Host), selectedHost.Port)
+	// }
 
 }
 
