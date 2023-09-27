@@ -44,7 +44,7 @@ type GCEInstanceConfig struct {
 type MachineTypeInfo struct {
 	Name   string
 	Zone   string
-	CPU    string
+	CPU    int64
 	Memory string
 }
 
@@ -93,6 +93,7 @@ func RunStartVM() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
 	}
+
 	selectedGCE, err := ChooseGCE()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -128,20 +129,46 @@ func RunStopVM() {
 }
 
 func ChooseGCE() (GCEInstance, error) {
-	cmd := exec.Command("gcloud", "compute", "instances", "list")
 
-	// Capture the output of the command
-	output, err := cmd.CombinedOutput()
+	// Create a Compute Engine service instance using the service account key file.
+	computeService, err := compute.NewService(ctx)
 	if err != nil {
-		return GCEInstance{}, fmt.Errorf("Error: %v\n", err)
+		fmt.Printf("Error creating compute service: %v\n", err)
+		return GCEInstance{}, err
 	}
 
-	// Convert the output to a string
-	outputStr := string(output)
-	// fmt.Println(outputStr)
+	// List all GCE instances in the project.
+	instanceList, err := computeService.Instances.AggregatedList(projectID).Do()
+	if err != nil {
+		fmt.Printf("Error listing instances: %v\n", err)
+		return GCEInstance{}, err
+	}
 
-	// Parse the output to extract instance details
-	instances := parseGCEInstances(outputStr)
+	// Store instances in a slice of GCEInstance.
+	var instances []GCEInstance
+	for _, itemList := range instanceList.Items {
+		for _, instance := range itemList.Instances {
+			zone := path.Base(instance.Zone)
+			machineType := path.Base(instance.MachineType)
+			internalIP := instance.NetworkInterfaces[0].NetworkIP
+			instances = append(instances, GCEInstance{Name: instance.Name, Zone: zone, InternalIP: internalIP, MachineType: machineType, Status: instance.Status})
+		}
+	}
+
+	// cmd := exec.Command("gcloud", "compute", "instances", "list")
+
+	// // Capture the output of the command
+	// output, err := cmd.CombinedOutput()
+	// if err != nil {
+	// 	return GCEInstance{}, fmt.Errorf("Error: %v\n", err)
+	// }
+
+	// // Convert the output to a string
+	// outputStr := string(output)
+	// // fmt.Println(outputStr)
+
+	// // Parse the output to extract instance details
+	// instances := parseGCEInstances(outputStr)
 
 	// Create a prompt for selecting an instance
 	prompt := promptui.Select{
@@ -174,42 +201,42 @@ func ChooseGCE() (GCEInstance, error) {
 }
 
 // Function to parse the output of 'gcloud compute instances list'
-func parseGCEInstances(output string) []GCEInstance {
-	lines := strings.Split(output, "\n")
-	var instances []GCEInstance
+// func parseGCEInstances(output string) []GCEInstance {
+// 	lines := strings.Split(output, "\n")
+// 	var instances []GCEInstance
 
-	// Skip the header line
-	if len(lines) >= 1 {
-		for _, line := range lines[1:] {
-			fields := strings.Fields(line)
-			// fmt.Println(fields)
-			// fmt.Println(len(fields))
-			if len(fields) >= 5 { // Make sure there are at least 6 fields
-				instance := GCEInstance{
-					Name:        fields[0],
-					Zone:        fields[1],
-					MachineType: fields[2],
-					InternalIP:  fields[3],
-				}
+// 	// Skip the header line
+// 	if len(lines) >= 1 {
+// 		for _, line := range lines[1:] {
+// 			fields := strings.Fields(line)
+// 			// fmt.Println(fields)
+// 			// fmt.Println(len(fields))
+// 			if len(fields) >= 5 { // Make sure there are at least 6 fields
+// 				instance := GCEInstance{
+// 					Name:        fields[0],
+// 					Zone:        fields[1],
+// 					MachineType: fields[2],
+// 					InternalIP:  fields[3],
+// 				}
 
-				// Check if there is an external IP field
-				if len(fields) == 5 {
-					instance.Status = fields[4]
-				}
+// 				// Check if there is an external IP field
+// 				if len(fields) == 5 {
+// 					instance.Status = fields[4]
+// 				}
 
-				// Check if there is a status field
-				if len(fields) == 6 {
-					instance.ExternalIP = fields[4]
-					instance.Status = fields[5]
-				}
+// 				// Check if there is a status field
+// 				if len(fields) == 6 {
+// 					instance.ExternalIP = fields[4]
+// 					instance.Status = fields[5]
+// 				}
 
-				instances = append(instances, instance)
-			}
-		}
-	}
+// 				instances = append(instances, instance)
+// 			}
+// 		}
+// 	}
 
-	return instances
-}
+// 	return instances
+// }
 
 func RunCreateGCEInstance() {
 	selectedHost, ExecutionMode, err := config.ChooseAlias(true)
@@ -404,47 +431,73 @@ func chooseMachineTypeGroup() (string, error) {
 
 // Function to list machine types for the selected group and zone
 func listMachineTypes(zone, series, group string) ([]MachineTypeInfo, error) {
-	fmt.Printf("%s-%s", series, group)
-	// Construct the 'gcloud' command to list machine types with the specified zone filter
-	cmd := exec.Command("gcloud", "compute", "machine-types", "list", "--filter=zone:"+zone)
-	cmd.Stderr = os.Stderr
-	stdout, err := cmd.StdoutPipe()
+	// fmt.Printf("%s-%s", series, group)
+	// // Construct the 'gcloud' command to list machine types with the specified zone filter
+	// cmd := exec.Command("gcloud", "compute", "machine-types", "list", "--filter=zone:"+zone)
+	// cmd.Stderr = os.Stderr
+	// stdout, err := cmd.StdoutPipe()
+	// if err != nil {
+	// 	fmt.Println("Error creating stdout pipe:", err)
+	// 	return nil, err
+	// }
+
+	// if err := cmd.Start(); err != nil {
+	// 	fmt.Println("Error starting command:", err)
+	// 	return nil, err
+	// }
+	// var machineTypes []MachineTypeInfo
+	// scanner := bufio.NewScanner(stdout)
+
+	// for scanner.Scan() {
+	// 	line := scanner.Text()
+	// 	if strings.Contains(line, fmt.Sprintf("%s-%s", series, group)) {
+	// 		fields := strings.Fields(line)
+	// 		if len(fields) >= 4 {
+	// 			machineType := MachineTypeInfo{
+	// 				Name:   fields[0],
+	// 				Zone:   fields[1],
+	// 				CPU:    fields[2],
+	// 				Memory: fields[3],
+	// 			}
+	// 			machineTypes = append(machineTypes, machineType)
+	// 		}
+	// 	}
+	// }
+
+	// if err := cmd.Wait(); err != nil {
+	// 	fmt.Println("Error waiting for command to finish:", err)
+	// 	return nil, err
+	// }
+
+	// if len(machineTypes) == 0 {
+	// 	fmt.Println("No 'n2-highcpu' machine types found in the specified zone.")
+	// 	return nil, err
+	// }
+
+	// Create a Compute Engine service instance using the service account key file.
+	computeService, err := compute.NewService(ctx)
 	if err != nil {
-		fmt.Println("Error creating stdout pipe:", err)
-		return nil, err
+		fmt.Printf("Error creating compute service: %v\n", err)
+		return []MachineTypeInfo{}, err
 	}
 
-	if err := cmd.Start(); err != nil {
-		fmt.Println("Error starting command:", err)
-		return nil, err
+	// List all machine types in the specified zone of the project.
+	machineTypeList, err := computeService.MachineTypes.List(projectID, zone).Do()
+	if err != nil {
+		fmt.Printf("Error listing machine types: %v\n", err)
+		return []MachineTypeInfo{}, err
 	}
+
 	var machineTypes []MachineTypeInfo
-	scanner := bufio.NewScanner(stdout)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.Contains(line, fmt.Sprintf("%s-%s", series, group)) {
-			fields := strings.Fields(line)
-			if len(fields) >= 4 {
-				machineType := MachineTypeInfo{
-					Name:   fields[0],
-					Zone:   fields[1],
-					CPU:    fields[2],
-					Memory: fields[3],
-				}
-				machineTypes = append(machineTypes, machineType)
-			}
+	// Output the names and descriptions of the n2 machine types.
+	for _, machineType := range machineTypeList.Items {
+		if strings.HasPrefix(machineType.Name, fmt.Sprintf("%s-%s", series, group)) {
+			cpu := machineType.GuestCpus
+			memoryMb := machineType.MemoryMb
+			memoryGb := float64(memoryMb) / 1024 // Convert memory from MB to GB.
+			memoryGbFormatted := fmt.Sprintf("%.2f", memoryGb)
+			machineTypes = append(machineTypes, MachineTypeInfo{Name: machineType.Name, Zone: machineType.Zone, CPU: cpu, Memory: memoryGbFormatted})
 		}
-	}
-
-	if err := cmd.Wait(); err != nil {
-		fmt.Println("Error waiting for command to finish:", err)
-		return nil, err
-	}
-
-	if len(machineTypes) == 0 {
-		fmt.Println("No 'n2-highcpu' machine types found in the specified zone.")
-		return nil, err
 	}
 
 	return machineTypes, nil
@@ -485,24 +538,41 @@ func chooseMachineType(machineTypes []MachineTypeInfo) (MachineTypeInfo, error) 
 
 // Function to get the list of available zones
 func getAvailableZones(region string) ([]string, error) {
-	cmd := exec.Command("gcloud", "compute", "zones", "list", fmt.Sprintf("--filter=region:%s", region))
+	// cmd := exec.Command("gcloud", "compute", "zones", "list", fmt.Sprintf("--filter=region:%s", region))
 
-	// Capture the output of the command
-	output, err := cmd.CombinedOutput()
+	// // Capture the output of the command
+	// output, err := cmd.CombinedOutput()
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// Create a Compute Engine service instance using the service account key file.
+	computeService, err := compute.NewService(ctx)
 	if err != nil {
+		fmt.Printf("Error creating compute service: %v\n", err)
+		return nil, err
+	}
+
+	// List all zones in the specified region of the project.
+	zoneList, err := computeService.Zones.List(projectID).Filter(fmt.Sprintf("region eq .*%s", region)).Do()
+	if err != nil {
+		fmt.Printf("Error listing zones: %v\n", err)
 		return nil, err
 	}
 
 	// Parse the output to extract zone names
 	var zones []string
-	lines := strings.Split(string(output), "\n")
-	for i := 1; i < len(lines); i++ {
-		line := lines[i]
-		if strings.TrimSpace(line) != "" {
-			zones = append(zones, strings.Fields(line)[0])
-		}
+	for _, zone := range zoneList.Items {
+		zones = append(zones, zone.Name)
 	}
-	fmt.Println(zones)
+	// lines := strings.Split(string(output), "\n")
+	// for i := 1; i < len(lines); i++ {
+	// 	line := lines[i]
+	// 	if strings.TrimSpace(line) != "" {
+	// 		zones = append(zones, strings.Fields(line)[0])
+	// 	}
+	// }
+	// fmt.Println(zones)
 	return zones, nil
 }
 
@@ -525,24 +595,42 @@ func chooseZone(zones []string) (string, error) {
 
 // Function to get the list of available zones
 func getAvailableRegions() ([]string, error) {
-	cmd := exec.Command("gcloud", "compute", "regions", "list")
 
-	// Capture the output of the command
-	output, err := cmd.CombinedOutput()
+	// Create a Compute Engine service instance using the service account key file.
+	computeService, err := compute.NewService(ctx)
 	if err != nil {
+		fmt.Printf("Error creating compute service: %v\n", err)
+		return nil, err
+	}
+	// List all regions in the project.
+	regionList, err := computeService.Regions.List(projectID).Do()
+	if err != nil {
+		fmt.Printf("Error listing regions: %v\n", err)
 		return nil, err
 	}
 
+	// cmd := exec.Command("gcloud", "compute", "regions", "list")
+
+	// // Capture the output of the command
+	// output, err := cmd.CombinedOutput()
+	// if err != nil {
+	// 	return nil, err
+	// }
+
 	// Parse the output to extract zone names
 	var regions []string
-	lines := strings.Split(string(output), "\n")
-	for i := 1; i < len(lines); i++ {
-		line := lines[i]
-		if strings.TrimSpace(line) != "" {
-			regions = append(regions, strings.Fields(line)[0])
-		}
+	for _, region := range regionList.Items {
+		regions = append(regions, region.Name)
 	}
-	fmt.Println(regions)
+
+	// lines := strings.Split(string(output), "\n")
+	// for i := 1; i < len(lines); i++ {
+	// 	line := lines[i]
+	// 	if strings.TrimSpace(line) != "" {
+	// 		regions = append(regions, strings.Fields(line)[0])
+	// 	}
+	// }
+	// fmt.Println(regions)
 	return regions, nil
 }
 
@@ -610,6 +698,21 @@ type ImageInfo struct {
 }
 
 func chooseImage() (ImageInfo, error) {
+
+	// List of project IDs that host public images.
+	// imageProjectIDs := []string{
+	// 	"centos-cloud",
+	// 	"coreos-cloud",
+	// 	"cos-cloud",
+	// 	"debian-cloud",
+	// 	"rhel-cloud",
+	// 	"suse-cloud",
+	// 	"suse-sap-cloud",
+	// 	"ubuntu-os-cloud",
+	// 	"windows-cloud",
+	// 	"windows-sql-cloud",
+	// }
+
 	cmd := exec.Command("gcloud", "compute", "images", "list")
 
 	// Run the command and capture its output
@@ -639,6 +742,7 @@ func chooseImage() (ImageInfo, error) {
 	projectPrompt := promptui.Select{
 		Label: "Select a PROJECT",
 		Items: getUniqueProjects(imageInfoList), // Get unique projects from the struct slice
+		Size:  10,
 	}
 
 	_, selectedProject, err := projectPrompt.Run() // Execute the prompt to select a project
@@ -658,6 +762,7 @@ func chooseImage() (ImageInfo, error) {
 		familyPrompt := promptui.Select{
 			Label: "Select a FAMILY for " + selectedProject,
 			Items: selectedFamilies, // Display families associated with the selected project
+			Size:  10,
 		}
 
 		_, selectedFamily, err := familyPrompt.Run() // Let the user select a FAMILY
